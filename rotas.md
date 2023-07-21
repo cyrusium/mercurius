@@ -1,3 +1,4 @@
+
 # Rotas da api
 
 ## Rotas de autenticação
@@ -12,8 +13,8 @@
 interface Request {
   start_time?: number; // In minutes from midnight
   end_time?: number; // In minutes from midnight
-  origin?: number; // Post id
-  destination?: number; // Post id
+  origin?: string; // Post id
+  destination?: string; // Post id
   day_of_week?: number; // 0-6
   accessibility?: {
     visual?: boolean;
