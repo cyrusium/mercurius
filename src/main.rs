@@ -6,9 +6,9 @@ use simplelog::{info, warn};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-  init_logger();
   dotenvy::dotenv().unwrap();
   get_args();
+  init_logger();
   check_env_vars().unwrap();
 
   // let search_config = search::SearchConfig {
