@@ -1,10 +1,12 @@
+mod user;
+
 pub use super::ApiError;
 use actix_web::{web, HttpResponse, Responder};
 use futures::FutureExt;
 use serde_json::json;
 
-const VERSION: u8 = 2;
-const CODENAME: &str = "helios";
+const VERSION: u8 = 0;
+const CODENAME: &str = "alpha";
 
 lazy_static::lazy_static! {
   static ref MIN_API_VERSION_AVAILABLE: u8 = dotenvy::var("MIN_API_VERSION_AVAILABLE").unwrap().parse::<u8>().unwrap();
@@ -25,7 +27,9 @@ pub fn config(cfg: &mut actix_web::web::ServiceConfig) {
     );
   } else {
     cfg.service(
-      actix_web::web::scope(CODENAME).default_service(web::get().to(index_get)),
+      actix_web::web::scope(CODENAME)
+        .configure(user::config)
+        .default_service(web::get().to(index_get)),
     );
   }
 }

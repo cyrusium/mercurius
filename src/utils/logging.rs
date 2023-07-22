@@ -4,19 +4,49 @@ use std::{
 };
 
 use chrono::{DateTime, Local, NaiveDateTime};
+use lazy_static::lazy_static;
 use simplelog::{
   Color, ColorChoice, CombinedLogger, ConfigBuilder, Level, LevelFilter,
   TermLogger, TerminalMode, WriteLogger,
 };
 
-use crate::constants::{LOG_FILE, LOG_PATH};
+lazy_static! {
+  static ref LOG_PATH: String =
+    dotenvy::var("LOG_PATH").unwrap_or("logs".to_string());
+  static ref LOG_FILE: String =
+    dotenvy::var("LOG_FILE").unwrap_or("latest.log".to_string());
+}
+
+fn from_str(s: &str) -> Option<LevelFilter> {
+  match s.to_lowercase().as_str() {
+    | "trace" => Some(LevelFilter::Trace),
+    | "debug" => Some(LevelFilter::Debug),
+    | "info" => Some(LevelFilter::Info),
+    | "warn" => Some(LevelFilter::Warn),
+    | "error" => Some(LevelFilter::Error),
+    | "off" => Some(LevelFilter::Off),
+    | _ => None,
+  }
+}
 
 pub struct LoggerSettings {
   pub level: LevelFilter,
   pub file_level: LevelFilter,
 }
 
-pub fn init_logger(settings: LoggerSettings) -> () {
+pub fn init_logger() -> () {
+  let settings = LoggerSettings {
+    level: from_str(
+      std::env::var("LOGGING_LEVEL").unwrap_or("INFO".to_string()).as_str(),
+    )
+    .unwrap(),
+    file_level: from_str(
+      std::env::var("FILE_LOGGING_LEVEL")
+        .unwrap_or("DEBUG".to_string())
+        .as_str(),
+    )
+    .unwrap(),
+  };
   let config = ConfigBuilder::new()
     .set_level_color(Level::Trace, Some(Color::Magenta))
     .set_level_color(Level::Debug, Some(Color::Cyan))
@@ -25,11 +55,11 @@ pub fn init_logger(settings: LoggerSettings) -> () {
     .set_level_color(Level::Error, Some(Color::Red))
     .build();
 
-  if !Path::new(&LOG_PATH).exists() {
-    std::fs::create_dir(&LOG_PATH).unwrap();
+  if !Path::new(&*LOG_PATH).exists() {
+    std::fs::create_dir(&*LOG_PATH).unwrap();
   }
 
-  let latest_log_path: String = format!("{}/{}", &LOG_PATH, &LOG_FILE);
+  let latest_log_path: String = format!("{}/{}", &*LOG_PATH, &*LOG_FILE);
   if Path::new(&latest_log_path).exists() {
     let metadata = metadata(&latest_log_path).unwrap();
     let created: DateTime<Local> = metadata.created().unwrap().into();
@@ -38,7 +68,7 @@ pub fn init_logger(settings: LoggerSettings) -> () {
       &latest_log_path,
       format!(
         "{}/{}.log",
-        &LOG_PATH,
+        &*LOG_PATH,
         datetime.format("%Y-%m-%d-%H-%M-%S").to_string()
       ),
     )
