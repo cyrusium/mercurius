@@ -1,3 +1,5 @@
+mod company;
+mod search;
 mod user;
 
 pub use super::ApiError;
@@ -28,6 +30,8 @@ pub fn config(cfg: &mut actix_web::web::ServiceConfig) {
   } else {
     cfg.service(
       actix_web::web::scope(CODENAME)
+        .configure(company::config)
+        .configure(search::config)
         .configure(user::config)
         .default_service(web::get().to(index_get)),
     );

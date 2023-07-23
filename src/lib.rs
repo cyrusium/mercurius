@@ -4,5 +4,5 @@ pub mod models;
 pub mod ratelimit;
 pub mod routes;
 pub mod search;
-pub mod utils;
+pub mod util;
 pub mod validation;

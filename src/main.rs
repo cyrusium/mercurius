@@ -1,8 +1,11 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use mercurius::routes;
-use mercurius::utils::{args::get_args, env::parse_var, logging::init_logger};
+use mercurius::util::{
+  args::get_args, env::parse_var, logging::init_logger, scheduler,
+};
 use simplelog::{info, warn};
+use std::thread;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -29,13 +32,13 @@ async fn main() -> std::io::Result<()> {
   //   .create_pool(Some(Runtime::Tokio1))
   //   .expect("Redis connection failed");
 
-  // let mut scheduler = scheduler::Scheduler::new();
+  let mut scheduler = scheduler::Scheduler::new();
 
-  // // The interval in seconds at which the local database is indexed
-  // // for searching.  Defaults to 1 hour if unset.
-  // let local_index_interval = std::time::Duration::from_secs(
-  //   parse_var("LOCAL_INDEX_INTERVAL").unwrap_or(3600),
-  // );
+  // The interval in seconds at which the local database is indexed
+  // for searching.  Defaults to 1 hour if unset.
+  let local_index_interval = std::time::Duration::from_secs(
+    parse_var("LOCAL_INDEX_INTERVAL").unwrap_or(3600),
+  );
 
   // let pool_ref = pool.clone();
   // let search_config_ref = search_config.clone();
@@ -49,7 +52,7 @@ async fn main() -> std::io::Result<()> {
   //     };
   //     let result = index_projects(pool_ref, settings, &search_config_ref).await;
   //     if let Err(e) = result {
-  //       warn!("Local project indexing failed: {:?}", e);
+  //       warn!("Local project indexing failed: {e:?}");
   //     }
   //     info!("Done indexing local database");
   //   }
@@ -113,12 +116,18 @@ async fn main() -> std::io::Result<()> {
       .configure(routes::root_config)
       .default_service(web::get().to(routes::not_found))
   })
-  .bind(("localhost", 8000))?
+  .workers(
+    thread::available_parallelism().unwrap_or(4.try_into().unwrap()).into(),
+  )
+  .bind((
+    parse_var::<String>("BIND_ADDR").unwrap(),
+    parse_var::<u16>("BIND_PORT").unwrap(),
+  ))?
   .run()
   .await
 }
 
-// This is so that env vars not used immediately don't panic at runtime
+/// Checks if all required environment variables are set
 fn check_env_vars() -> Result<(), ()> {
   let mut failed = false;
 
@@ -136,15 +145,22 @@ fn check_env_vars() -> Result<(), ()> {
 
   failed |= check_var::<String>("DOMAIN");
 
-  failed |= check_var::<String>("LOG_PATH");
-  failed |= check_var::<String>("LOG_FILE");
-  check_var::<String>("LOGGING_LEVEL"); // Only warns the user if not set, as it has a default value
-  check_var::<String>("FILE_LOGGING_LEVEL"); // Only warns the user if not set, as it has a default value
-
   failed |= check_var::<String>("BIND_ADDR");
   failed |= check_var::<u16>("BIND_PORT");
 
   failed |= check_var::<u8>("MIN_API_VERSION_AVAILABLE");
+
+  failed |= check_var::<u8>("DATABASE_URL");
+  failed |= check_var::<u8>("DATABASE_MIN_CONNECTIONS");
+  failed |= check_var::<u8>("DATABASE_MAX_CONNECTIONS");
+
+  failed |= check_var::<u8>("LOCAL_INDEX_INTERVAL");
+
+  // Only warns the user if not set, as they have a default value
+  check_var::<String>("LOG_PATH");
+  check_var::<String>("LOG_FILE");
+  check_var::<String>("LOGGING_LEVEL");
+  check_var::<String>("FILE_LOGGING_LEVEL");
 
   if failed {
     Err(())
